@@ -16,7 +16,10 @@
  * not there is a new input tzoffset which defaults to my time ie -5 which you must set .
  * lgk version 6 add support for actually knowing the fan is on or not (added tile),
  * and also the actual operating state ie heating,cooling or idle via new response variables.
- * 
+ * lgk version 7, change the new operating state to be a value vs standard tile
+ * to work around a bug smartthings caused in the latest 2.08 release with text wrapping.
+ * related also added icons to the operating state, and increase the width of the last update
+ * to avoid wrapping.
  *
  */
 preferences {
@@ -146,11 +149,11 @@ metadata {
         
         //tile added for operating state - Create the tiles for each possible state, look at other examples if you wish to change the icons here. 
         
-        standardTile("thermostatOperatingState", "device.thermostatOperatingState", inactiveLabel: false) {
-            state "Heating", label:'${name}', backgroundColor : '#E14902'
-            state "Cooling", label:'${name}', backgroundColor : '#1e9cbb'
-            state "Idle", label:'${name}'
-            state "Unknown", label:'${name}', backgroundColor : '#cc0000'
+         valueTile("thermostatOperatingState", "device.thermostatOperatingState", inactiveLabel: false) {
+            state "Heating", label:'${name}', backgroundColor : '#E14902', icon: "st.Weather.weather14"
+            state "Cooling", label:'${name}', backgroundColor : '#1e9cbb', icon: "st.Weather.weather7"
+            state "Idle", label:'${name}', icon: ""
+            state "Unknown", label:'${name}', backgroundColor : '#cc0000', icon: ""
         }
         
            standardTile("fanOperatingState", "device.fanOperatingState", inactiveLabel: false) {
@@ -232,7 +235,7 @@ metadata {
                 ]
         }
 
-      		valueTile("status", "device.lastUpdate", width: 2, height: 1, decoration: "flat") {
+      		valueTile("status", "device.lastUpdate", width: 3, height: 1, decoration: "flat") {
 			state "default", label: 'Last Update: ${currentValue}'
 		}
 
