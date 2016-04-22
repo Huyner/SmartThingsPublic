@@ -20,6 +20,9 @@
  * to work around a bug smartthings caused in the latest 2.08 release with text wrapping.
  * related also added icons to the operating state, and increase the width of the last update
  * to avoid wrapping.
+ 
+* lgk version 8 figured out how to do time without user input of time zone offset.. and this works with and without
+* daylight saving time.
  *
  */
 preferences {
@@ -28,7 +31,7 @@ preferences {
     input("honeywelldevice", "text", title: "Device ID", description: "Your Device ID", required: true)
     input ("enableOutdoorTemps", "enum", title: "Do you have the optional outdoor temperature sensor and want to enable it?", options: ["Yes", "No"], required: false, defaultValue: "No")
     input ("tempScale", "enum", title: "Fahrenheit or Celsius?", options: ["F", "C"], required: false, defaultValue: "F")
-  	input("tzOffset", "number", title: "Time zone offset +/-xx?", required: false, defaultValue: -5, description: "Time Zone Offset ie -5.")  
+  	//input("tzOffset", "number", title: "Time zone offset +/-xx?", required: false, defaultValue: -5, description: "Time Zone Offset ie -5.")  
   }
 
 metadata {
@@ -149,7 +152,7 @@ metadata {
         
         //tile added for operating state - Create the tiles for each possible state, look at other examples if you wish to change the icons here. 
         
-         valueTile("thermostatOperatingState", "device.thermostatOperatingState", inactiveLabel: false) {
+        valueTile("thermostatOperatingState", "device.thermostatOperatingState", inactiveLabel: false) {
             state "Heating", label:'${name}', backgroundColor : '#E14902', icon: "st.Weather.weather14"
             state "Cooling", label:'${name}', backgroundColor : '#1e9cbb', icon: "st.Weather.weather7"
             state "Idle", label:'${name}', icon: ""
@@ -798,14 +801,16 @@ log.debug "https://www.mytotalconnectcomfort.com/portal/Device/CheckDataSession/
         sendEvent(name: 'temperature', value: finalTemp, state: switchPos)
         sendEvent(name: 'relativeHumidity', value: curHumidity as Integer)
         
-       if (settings.tzOffset == null)
-        settings.tzOffset = -5
-
-        def now = new Date()
-        def tf = new java.text.SimpleDateFormat("MM/dd/yyyy h:mm a")
-        tf.setTimeZone(TimeZone.getTimeZone("GMT${settings.tzOffset}"))
-        def newtime = "${tf.format(now)}" as String   
-        sendEvent(name: "lastUpdate", value: newtime, descriptionText: "Last Update: $newtime")
+       
+		//log.debug "location = $location.name tz = $location.timeZone"
+        def now = new Date().format('MM/dd/yyyy h:mm a',location.timeZone)
+       
+        //def now = new Date()
+        //def tf = new java.text.SimpleDateFormat("MM/dd/yyyy h:mm a")
+        //tf.setTimeZone(TimeZone.getTimeZone("GMT${settings.tzOffset}"))
+        //def newtime = "${tf.format(now)}" as String   
+       // sendEvent(name: "lastUpdate", value: newtime, descriptionText: "Last Update: $newtime")
+		sendEvent(name: "lastUpdate", value: now, descriptionText: "Last Update: $now")
 
         
       if (enableOutdoorTemps == "Yes")
