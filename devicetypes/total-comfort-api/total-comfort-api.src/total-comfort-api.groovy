@@ -23,6 +23,13 @@
  
 * lgk version 8 figured out how to do time without user input of time zone offset.. and this works with and without
 * daylight saving time.
+*
+* lgk version 9 an indicator on the bottom which indicates if following schedule or vacation or temp hold.
+* it also displays green for following schedule and red for other modes. 
+* you can also select it to cancel a hold and go back to following schedule.
+* however, the temp will not update till next refresh even though you have cancelled the hold.
+* One problem, is that the colors are not working correctly in ios currently and the label is not 
+* wrapping in  android as it is supposed to.
  *
  */
 preferences {
@@ -47,9 +54,13 @@ metadata {
     command "heatLevelDown"
     command "coolLevelUp"
     command "coolLevelDown"
+    command "setFollowSchedule"
     attribute "outdoorHumidity", "number"
     attribute "outdoorTemperature", "number"
     attribute "lastUpdate", "string"
+    
+   attribute "followSchedule", "string"
+   
 
     
   }
@@ -60,7 +71,7 @@ metadata {
 
    tiles {
         valueTile("temperature", "device.temperature", width: 2, height: 2, canChangeIcon: true) {
-            state("temperature", label: '${currentValue}°', 
+            state("temperature", label: '${currentValue}�', 
              icon: "http://cdn.device-icons.smartthings.com/Weather/weather2-icn@2x.png",
              unit:"F", backgroundColors: [            
              		[value: -14, color: "#1e9cbb"],
@@ -114,7 +125,7 @@ metadata {
         }
        valueTile("coolingSetpoint", "device.coolingSetpoint", inactiveLabel: false) 
     	  {
-          state "default", label:'Cool\n${currentValue}°', unit:"F",
+          state "default", label:'Cool\n${currentValue}�', unit:"F",
            backgroundColors: [
           		    [value: 0, color: "#153591"],
                	    [value: 7, color: "#1e9cbb"],
@@ -132,7 +143,7 @@ metadata {
         }
    valueTile("heatingSetpoint", "device.heatingSetpoint", inactiveLabel: false) 
     	{
-      state "default", label:'Heat\n${currentValue}°', unit: "F",
+      state "default", label:'Heat\n${currentValue}�', unit: "F",
        backgroundColors:[
      			    [value: 0, color: "#153591"],
                	    [value: 7, color: "#1e9cbb"],
@@ -202,7 +213,7 @@ metadata {
         
         /* lgk new tiles for outside temp and hummidity */
           valueTile("outdoorTemperature", "device.outdoorTemperature", width: 1, height: 1, canChangeIcon: true) {
-            state("temperature", label: 'Outdoor\n ${currentValue}°',
+            state("temperature", label: 'Outdoor\n ${currentValue}�',
             icon: "http://cdn.device-icons.smartthings.com/Weather/weather2-icn@2x.png",
             unit:"F", backgroundColors: [
                     [value: -31, color: "#003591"],
@@ -238,15 +249,23 @@ metadata {
                 ]
         }
 
-      		valueTile("status", "device.lastUpdate", width: 3, height: 1, decoration: "flat") {
+      		valueTile("status", "device.lastUpdate", width: 2, height: 1, decoration: "flat") {
 			state "default", label: 'Last Update: ${currentValue}'
 		}
-
+  
+     valueTile("followSchedule", "device.followSchedule", width: 1, height: 1, inactiveLabel: false) {
+            state "FollowingSchedule", label:'Following\nSchedule', action:"setFollowSchedule", backgroundColor: '#44b621'
+            state "TemporaryHold", label:'Temporary\nHold', action:"setFollowSchedule", backgroundColor: '#E14902'
+            state "VacationHold", label:'Vacation\nHold', action:"setFollowSchedule", backgroundColor: '#E14902'
+    
+    }
+ 
+    
         main "temperature"
         details(["temperature", "thermostatMode", "thermostatFanMode",   
         "heatLevelUp", "heatingSetpoint" , "heatLevelDown", "coolLevelUp",
         "coolingSetpoint", "coolLevelDown" ,"thermostatOperatingState","fanOperatingState",
-        "refresh","relativeHumidity","outdoorTemperature","outdoorHumidity", "status"])
+        "refresh","relativeHumidity","outdoorTemperature","outdoorHumidity", "followSchedule","status"])
        
     }
 }
@@ -414,6 +433,28 @@ def setHeatingSetpoint(temp) {
         
 }
 
+
+def setFollowSchedule() {
+log.debug "in set follow schedule"
+  data.SystemSwitch = 'null' 
+    data.HeatSetpoint = 'null'
+    data.CoolSetpoint = 'null'
+    data.HeatNextPeriod = 'null'
+    data.CoolNextPeriod = 'null'
+    data.StatusHeat='0'
+    data.StatusCool='0'
+    data.FanMode = 'null'
+  setStatus()
+
+    if(data.SetStatus==1)
+  {
+        log.debug "Successfully sent follow schedule.!"
+        runIn(60,"getStatus")
+    }
+        
+}
+
+
 def setCoolingSetpoint(double temp) {
   data.SystemSwitch = 'null' 
     data.HeatSetpoint = 'null'
@@ -540,6 +581,7 @@ def fanCirculate() {
     setThermostatFanMode(2)
 }
 
+
 def setThermostatFanMode(mode) {    
   
   data.SystemSwitch = 'null' 
@@ -664,6 +706,28 @@ log.debug "https://www.mytotalconnectcomfort.com/portal/Device/CheckDataSession/
         def fanIsRunning = response.data.latestData.fanData.fanIsRunning
         def equipmentStatus = response.data.latestData.uiData.EquipmentOutputStatus
         
+        def holdTime = response.data.latestData.uiData.TemporaryHoldUntilTime
+        def vacationHold = response.data.latestData.uiData.IsInVacationHoldMode
+        
+        log.debug "got holdTime = $holdTime"
+        log.debug "got Vacation Hold = $vacationHold"
+        
+        if (holdTime != 0) 
+         {  log.debug "sending temporary hold"
+            sendEvent(name: 'followSchedule', value: "TemporaryHold")
+         }
+         
+         if (vacationHold == true)
+         { log.debug "sending vacation hold"
+           sendEvent(name: 'followSchedule', value: "VacationHold")
+         }
+         
+          if (vacationHold == false && holdTime == 0)
+         {
+           log.debug "Sending following schedule"
+           sendEvent(name: 'followSchedule', value: "FollowingSchedule")
+         }
+          
 /*ld = [fanData:[fanModeCirculateAllowed:true, fanModeAutoAllowed:true, fanModeFollowScheduleAllowed:false, 
         fanIsRunning:false, fanModeOnAllowed:true, fanMode:0], 
         drData:[Load:127.5, HeatSetpLimit:0,
@@ -954,3 +1018,4 @@ def installed() {
   
   log.debug "display units now = $state.DisplayUnits"
 }
+
